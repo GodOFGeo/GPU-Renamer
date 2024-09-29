@@ -43,8 +43,9 @@ def add_pci_root(plist_data, pci_root):
     if "Add" not in plist_data["DeviceProperties"]:
         plist_data["DeviceProperties"]["Add"] = {}
 
-    plist_data["DeviceProperties"]["Add"][pci_root] = {
-    }
+    # Initialize the PCI Root structure if it does not exist
+    if pci_root not in plist_data["DeviceProperties"]["Add"]:
+        plist_data["DeviceProperties"]["Add"][pci_root] = {"model": ""}  # Initialize with an empty model
 
     return plist_data
 
@@ -91,7 +92,7 @@ def main():
             gpu_name = input("Enter the new GPU name:")
             plist_data = load_config(plist_path)
             if "DeviceProperties" in plist_data and "Add" in plist_data["DeviceProperties"]:
-                if "model" in plist_data["DeviceProperties"]["Add"][pci_root]:
+                if pci_root in plist_data["DeviceProperties"]["Add"] and "model" in plist_data["DeviceProperties"]["Add"][pci_root]:
                     print(f"The PCI Root '{pci_root}' already contains a model entry.")
                     overwrite = input("Do you want to overwrite it? (y/n): ").lower()
                     if overwrite == 'n':
@@ -102,7 +103,7 @@ def main():
             save_config(plist_path, plist_data)
             print(f"Updated {pci_root} with GPU name '{gpu_name}'.")
 
-        if choice == '2':
+        elif choice == '2':
             print("Drag and drop your config.plist file here:")
             plist_path = input().strip()
             plist_path = clean_path(plist_path)
@@ -113,7 +114,7 @@ def main():
             gpu_name = input("Enter the GPU name: ")
             plist_data = load_config(plist_path)
             if "DeviceProperties" in plist_data and "Add" in plist_data["DeviceProperties"]:
-                if "model" in plist_data["DeviceProperties"]["Add"][pci_root]:
+                if pci_root in plist_data["DeviceProperties"]["Add"] and "model" in plist_data["DeviceProperties"]["Add"][pci_root]:
                     print(f"The PCI Root '{pci_root}' already contains a model entry.")
                     overwrite = input("Do you want to overwrite it? (y/n): ").lower()
                     if overwrite == 'n':
