@@ -91,8 +91,8 @@ def main():
             gpu_name = input("Enter the new GPU name:")
             plist_data = load_config(plist_path)
             if "DeviceProperties" in plist_data and "Add" in plist_data["DeviceProperties"]:
-                if pci_root in plist_data["DeviceProperties"]["Add"]:
-                    print(f"The PCI Root '{pci_root}' already exists in DeviceProperties.")
+                if "model" in plist_data["DeviceProperties"]["Add"][pci_root]:
+                    print(f"The PCI Root '{pci_root}' already contains a model entry.")
                     overwrite = input("Do you want to overwrite it? (y/n): ").lower()
                     if overwrite == 'n':
                         print("No changes made to the existing PCI Root entry.")
@@ -113,8 +113,8 @@ def main():
             gpu_name = input("Enter the GPU name: ")
             plist_data = load_config(plist_path)
             if "DeviceProperties" in plist_data and "Add" in plist_data["DeviceProperties"]:
-                if pci_root in plist_data["DeviceProperties"]["Add"]:
-                    print(f"The PCI Root '{pci_root}' already exists in DeviceProperties.")
+                if "model" in plist_data["DeviceProperties"]["Add"][pci_root]:
+                    print(f"The PCI Root '{pci_root}' already contains a model entry.")
                     overwrite = input("Do you want to overwrite it? (y/n): ").lower()
                     if overwrite == 'n':
                         print("No changes made to the existing PCI Root entry.")
