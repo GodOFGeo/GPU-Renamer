@@ -1,6 +1,4 @@
-import plistlib
-import subprocess
-import os
+import plistlib, subprocess, os, shutil, datetime
 
 def load_config(plist_path):
     try:
@@ -17,6 +15,16 @@ def save_config(plist_path, plist_data):
         print("config.plist saved successfully!")
     except Exception as e:
         print(f"Error saving your config.plist: {e}")
+
+def create_backup(plist_path):
+    try:
+        backup_path = f"{plist_path}.backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        shutil.copy(plist_path, backup_path)
+        print(f"Backup created: {backup_path}")
+        return backup_path
+    except Exception as e:
+        print(f"Error creating backup: {e}")
+        return None
 
 def change_gpu_name(plist_data, new_name):
     if "DeviceProperties" not in plist_data:
@@ -73,6 +81,8 @@ def main():
             plist_path = input().strip()
             plist_path = clean_path(plist_path)
 
+            create_backup(plist_path)
+
             pci_root = get_pci_root()
             if not pci_root:
                 print("Error detecting PCI Root. Please try manually or ensure gfxutil is present.")
@@ -80,6 +90,13 @@ def main():
             
             gpu_name = input("Enter the new GPU name:")
             plist_data = load_config(plist_path)
+            if "DeviceProperties" in plist_data and "Add" in plist_data["DeviceProperties"]:
+                if pci_root in plist_data["DeviceProperties"]["Add"]:
+                    print(f"The PCI Root '{pci_root}' already exists in DeviceProperties.")
+                    overwrite = input("Do you want to overwrite it? (y/n): ").lower()
+                    if overwrite == 'n':
+                        print("No changes made to the existing PCI Root entry.")
+                        return plist_data, False
             plist_data = add_pci_root(plist_data, pci_root)
             plist_data["DeviceProperties"]["Add"][pci_root]["model"] = gpu_name
             save_config(plist_path, plist_data)
@@ -90,9 +107,18 @@ def main():
             plist_path = input().strip()
             plist_path = clean_path(plist_path)
 
+            create_backup(plist_path)
+
             pci_root = input("Enter the PCI Root to add: ")
             gpu_name = input("Enter the GPU name: ")
             plist_data = load_config(plist_path)
+            if "DeviceProperties" in plist_data and "Add" in plist_data["DeviceProperties"]:
+                if pci_root in plist_data["DeviceProperties"]["Add"]:
+                    print(f"The PCI Root '{pci_root}' already exists in DeviceProperties.")
+                    overwrite = input("Do you want to overwrite it? (y/n): ").lower()
+                    if overwrite == 'n':
+                        print("No changes made to the existing PCI Root entry.")
+                        return plist_data, False
             plist_data = add_pci_root(plist_data, pci_root)
             plist_data["DeviceProperties"]["Add"][pci_root]["model"] = gpu_name
             save_config(plist_path, plist_data)
