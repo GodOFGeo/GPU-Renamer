@@ -18,7 +18,7 @@ def save_config(plist_path, plist_data):
 
 def create_backup(plist_path):
     try:
-        backup_path = f"{plist_path}.backup}"
+        backup_path = f"{plist_path}.backup"
         shutil.copy(plist_path, backup_path)
         print(f"Backup created: {backup_path}")
         return backup_path
