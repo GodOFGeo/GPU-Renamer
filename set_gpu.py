@@ -1,21 +1,28 @@
-import plistlib, subprocess, os, shutil, datetime
+import plistlib, subprocess, os, shutil, datetime, requests, stat, zipfile
 
+
+# Load the config
 def load_config(plist_path):
     try:
         with open(plist_path, 'rb') as f:
             return plistlib.load(f)
     except Exception as e:
+        # Something broke
         print(f"Error loading your config.plist: {e}")
         return None
 
+# Save the config, let's hope nothing breaks here
 def save_config(plist_path, plist_data):
     try:
         with open(plist_path, 'wb') as f:
             plistlib.dump(plist_data, f)
+        # Yay, it saved
         print("config.plist saved successfully!")
     except Exception as e:
+        # Fuck
         print(f"Error saving your config.plist: {e}")
 
+# Create the backup, just in case
 def create_backup(plist_path):
     try:
         backup_path = f"{plist_path}.backup"
@@ -49,20 +56,90 @@ def add_pci_root(plist_data, pci_root):
 
     return plist_data
 
+def download_gfxutil(version='RELEASE'):
+    url = "https://api.github.com/repos/acidanthera/gfxutil/releases/latest"
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        print("Error fetching release data.")
+        return
+
+    data = response.json()
+
+    print("Available assets:")
+    for asset in data['assets']:
+        print(f"- {asset['name']}")
+
+    gfxutil_url = None
+    for asset in data['assets']:
+        if version in asset['name'] and asset['name'].endswith('.zip'):
+            gfxutil_url = asset['browser_download_url']
+            break
+
+    if gfxutil_url:
+        zip_response = requests.get(gfxutil_url)
+        zip_path = 'gfxutil.zip'
+        with open(zip_path, 'wb') as f:
+            f.write(zip_response.content)
+
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall('.')  
+
+        os.chmod('./gfxutil', 0o755)
+        print("gfxutil downloaded and extracted successfully!")
+
+        os.remove(zip_path)
+    else:
+        print(f"Error: Could not find a suitable gfxutil download for version '{version}'.")
+
+download_gfxutil(version='RELEASE')
+
 def get_pci_root():
+    gfxutil_path = './gfxutil'
+
+    if not os.access(gfxutil_path, os.X_OK):
+        print("gfxutil is not executable. Please check the file permissions.")
+        return None
     try: 
         result = subprocess.run(["./gfxutil", "-f", "display"], capture_output=True, text=True)
         output = result.stdout.strip()
+        pci_roots = []
+
         for line in output.splitlines():
             if "PciRoot" in line:
                 pci_root = line.split("= ")[1].strip()
-                return pci_root
+                pci_roots.append(pci_root)
+
+        if len(pci_roots) > 1:
+            print("Multiple device paths found:")
+            for i, pci_root in enumerate(pci_roots):
+                print(f"{i}: {pci_root}")
+            while True:
+                try:
+                    choice = int(input("Enter the number of the device path to use: "))
+                    if 0 <= choice < len(pci_roots):
+                        return pci_roots[choice]
+                    else:
+                        print(f"Please enter a number between 0 and {len(pci_roots)}.")
+                except ValueError:
+                    print("Invalid input. Please enter a valid number.")
+            return pci_roots[choice]
+
+        elif len(pci_roots) == 1:
+            return pci_roots[0]
+
+        else:
+            print("No device paths found.")
+            return None
+
     except Exception as e:
         print(f"Error running gfxutil: {e}")
         return None
 
-def clean_path(plist_path):
-    return plist_path.strip().strip("'").strip('"').replace('\\ ', ' ')
+def clean_path(path):
+    path = path.strip()
+    path = path.replace("\\", "")
+    return path
 
 def main():
     print("########################################")
@@ -91,13 +168,17 @@ def main():
             
             gpu_name = input("Enter the new GPU name:")
             plist_data = load_config(plist_path)
+            if plist_data is None:
+                print("Failed to load config.plist. Please check the file and try again.")
+                continue
             if "DeviceProperties" in plist_data and "Add" in plist_data["DeviceProperties"]:
                 if pci_root in plist_data["DeviceProperties"]["Add"] and "model" in plist_data["DeviceProperties"]["Add"][pci_root]:
                     print(f"The PCI Root '{pci_root}' already contains a model entry.")
                     overwrite = input("Do you want to overwrite it? (y/n): ").lower()
                     if overwrite == 'n':
                         print("No changes made to the existing PCI Root entry.")
-                        return plist_data, False
+                        main()
+                        return plist_data
             plist_data = add_pci_root(plist_data, pci_root)
             plist_data["DeviceProperties"]["Add"][pci_root]["model"] = gpu_name
             save_config(plist_path, plist_data)
